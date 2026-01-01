@@ -1,0 +1,5 @@
+{
+  "name": "CryptoPulse Analytics Dashboard",
+  "description": "A professional crypto analytics platform featuring real-time data from CoinGecko, interactive Recharts visualizations, and Supabase watchlist integration.",
+  "requestFramePermissions": []
+}
