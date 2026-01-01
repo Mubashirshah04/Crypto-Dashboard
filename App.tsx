@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   BarChart,
@@ -34,20 +33,20 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-
-      const [coinsData, watchlistData] = await Promise.all([
-        fetchCoins(),
-        fetchWatchlist()
-      ]);
-
+      
+      const coinsData = await fetchCoins();
+      
+      console.log('📊 Loaded coins:', coinsData.length);
+      
       setCoins(coinsData);
-      setWatchlist(watchlistData.map(item => item.coin_id));
-
+      setWatchlist([]);
+      
       if (!selectedCoin && coinsData.length > 0) {
         setSelectedCoin(coinsData[0]);
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+      console.error('❌ Error loading data:', err);
+      setError(err.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -55,14 +54,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Derived Statistics
   const stats = useMemo<DashboardStats>(() => {
     if (coins.length === 0) return { totalMarketCap: 0, totalVolume: 0, avgChange24h: 0, topGainer: null };
-
-    // Fixed Error: Changed 'once' to 'reduce'
+    
     const totalMarketCap = coins.reduce((acc, coin) => acc + coin.market_cap, 0);
     const totalVolume = coins.reduce((acc, coin) => acc + coin.total_volume, 0);
     const avgChange24h = coins.reduce((acc, coin) => acc + coin.price_change_percentage_24h, 0) / coins.length;
@@ -73,7 +70,7 @@ const App: React.FC = () => {
 
   // Filtering and Sorting
   const filteredAndSortedCoins = useMemo(() => {
-    let result = coins.filter(coin =>
+    let result = coins.filter(coin => 
       coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -135,7 +132,7 @@ const App: React.FC = () => {
     const bullish = coins.filter(c => c.price_change_percentage_24h > 1).length;
     const neutral = coins.filter(c => c.price_change_percentage_24h >= -1 && c.price_change_percentage_24h <= 1).length;
     const bearish = coins.filter(c => c.price_change_percentage_24h < -1).length;
-
+    
     return [
       { name: 'Bullish (>1%)', value: bullish },
       { name: 'Neutral', value: neutral },
@@ -162,7 +159,7 @@ const App: React.FC = () => {
             <p className="text-slate-400">Track and analyze over {coins.length} global crypto assets in real-time.</p>
           </div>
           <div className="flex gap-3">
-            <button
+            <button 
               onClick={() => loadData()}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl border border-slate-700 transition-all text-sm font-medium"
             >
@@ -184,28 +181,28 @@ const App: React.FC = () => {
 
         {/* KPI Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <KPICard
-            title="Total Market Cap"
-            value={formatCompactNumber(stats.totalMarketCap)}
+          <KPICard 
+            title="Total Market Cap" 
+            value={formatCompactNumber(stats.totalMarketCap)} 
             icon={TrendingUp}
             color="bg-blue-600"
           />
-          <KPICard
-            title="Total Volume (24h)"
-            value={formatCompactNumber(stats.totalVolume)}
+          <KPICard 
+            title="Total Volume (24h)" 
+            value={formatCompactNumber(stats.totalVolume)} 
             icon={Activity}
             color="bg-emerald-600"
           />
-          <KPICard
-            title="Avg Market Change"
-            value={formatPercent(stats.avgChange24h)}
+          <KPICard 
+            title="Avg Market Change" 
+            value={formatPercent(stats.avgChange24h)} 
             change={stats.avgChange24h}
             icon={BarChart}
             color="bg-purple-600"
           />
-          <KPICard
-            title="Top Gainer"
-            value={stats.topGainer?.name || '-'}
+          <KPICard 
+            title="Top Gainer" 
+            value={stats.topGainer?.name || '-'} 
             change={stats.topGainer?.price_change_percentage_24h}
             icon={TrendingUp}
             color="bg-amber-600"
@@ -255,7 +252,7 @@ const App: React.FC = () => {
                 {pieChartData.map((item, idx) => (
                   <div key={item.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={classNames("w-3 h-3 rounded-full",
+                      <div className={classNames("w-3 h-3 rounded-full", 
                         idx === 0 ? "bg-emerald-500" : idx === 1 ? "bg-amber-500" : "bg-rose-500"
                       )}></div>
                       <span className="text-slate-400 text-sm">{item.name}</span>
@@ -281,16 +278,16 @@ const App: React.FC = () => {
           <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-white">Market Statistics</h2>
             <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Filter by name..."
+              <input 
+                type="text" 
+                placeholder="Filter by name..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
-          <CoinTable
+          <CoinTable 
             coins={filteredAndSortedCoins}
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
