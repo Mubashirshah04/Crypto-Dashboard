@@ -9,8 +9,8 @@ import {
   AlertCircle,
   Search
 } from 'lucide-react';
-import { fetchCoins } from './services/api.ts';
-import { fetchWatchlist, addToWatchlist, removeFromWatchlist } from './services/supabase.ts';
+import { fetchCoins } from './services/api';
+import { fetchWatchlist, addToWatchlist, removeFromWatchlist } from './services/supabase';
 import { Coin, DashboardStats, SortField, SortOrder } from './types';
 import { formatCurrency, formatCompactNumber, formatPercent, classNames } from './utils/formatters';
 import Layout from './components/Layout';
