@@ -1,4 +1,3 @@
-import { COINGECKO_BASE_URL } from '../constants';
 import { Coin } from '../types';
 
 // Cache storage
@@ -6,32 +5,26 @@ let cachedCoins: Coin[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Multiple API endpoints as fallback
+// CORS-free proxy endpoints
 const API_ENDPOINTS = [
   {
-    name: 'CoinGecko',
-    url: (currency: string, perPage: number) => 
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=${perPage}&page=1&sparkline=true&price_change_percentage=24h`
+    name: 'CoinGecko via Proxy',
+    url: () => 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=true&price_change_percentage=24h',
   },
   {
-    name: 'CoinGecko Demo',
-    url: (currency: string, perPage: number) => 
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=10&page=1&sparkline=false`
-  },
-  {
-    name: 'Binance Proxy',
-    url: () => 'https://api.binance.com/api/v3/ticker/24hr',
-    transform: (data: any[]) => {
-      // Transform Binance data to match our format
-      return data.slice(0, 50).map((item, index) => ({
-        id: item.symbol.toLowerCase(),
-        symbol: item.symbol.replace('USDT', '').toLowerCase(),
-        name: item.symbol.replace('USDT', ''),
-        image: `https://cryptologos.cc/logos/${item.symbol.toLowerCase()}-logo.png`,
-        current_price: parseFloat(item.lastPrice),
-        market_cap: parseFloat(item.quoteVolume) * parseFloat(item.lastPrice),
-        total_volume: parseFloat(item.quoteVolume),
-        price_change_percentage_24h: parseFloat(item.priceChangePercent),
+    name: 'CryptoCompare',
+    url: () => 'https://min-api.cryptocompare.com/data/top/mktcapfull?limit=50&tsym=USD',
+    transform: (data: any) => {
+      if (!data.Data) return [];
+      return data.Data.map((item: any) => ({
+        id: item.CoinInfo.Name.toLowerCase(),
+        symbol: item.CoinInfo.Name.toLowerCase(),
+        name: item.CoinInfo.FullName,
+        image: `https://www.cryptocompare.com${item.CoinInfo.ImageUrl}`,
+        current_price: item.RAW?.USD?.PRICE || 0,
+        market_cap: item.RAW?.USD?.MKTCAP || 0,
+        total_volume: item.RAW?.USD?.TOTALVOLUME24H || 0,
+        price_change_percentage_24h: item.RAW?.USD?.CHANGEPCT24HOUR || 0,
         sparkline_in_7d: { price: [] }
       }));
     }
@@ -40,15 +33,16 @@ const API_ENDPOINTS = [
     name: 'CoinCap',
     url: () => 'https://api.coincap.io/v2/assets?limit=50',
     transform: (response: any) => {
+      if (!response.data) return [];
       return response.data.map((item: any) => ({
         id: item.id,
         symbol: item.symbol.toLowerCase(),
         name: item.name,
         image: `https://assets.coincap.io/assets/icons/${item.symbol.toLowerCase()}@2x.png`,
-        current_price: parseFloat(item.priceUsd),
-        market_cap: parseFloat(item.marketCapUsd),
-        total_volume: parseFloat(item.volumeUsd24Hr),
-        price_change_percentage_24h: parseFloat(item.changePercent24Hr),
+        current_price: parseFloat(item.priceUsd) || 0,
+        market_cap: parseFloat(item.marketCapUsd) || 0,
+        total_volume: parseFloat(item.volumeUsd24Hr) || 0,
+        price_change_percentage_24h: parseFloat(item.changePercent24Hr) || 0,
         sparkline_in_7d: { price: [] }
       }));
     }
@@ -68,14 +62,15 @@ export const fetchCoins = async (vsCurrency = 'usd', perPage = 50): Promise<Coin
     try {
       console.log(`🔄 Trying ${endpoint.name}...`);
       
-      const url = endpoint.url(vsCurrency, perPage);
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(8000) // 8 second timeout
+      const response = await fetch(endpoint.url(), {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+        },
       });
 
       if (!response.ok) {
-        console.warn(`❌ ${endpoint.name} failed with status ${response.status}`);
+        console.warn(`❌ ${endpoint.name} failed: ${response.status}`);
         continue;
       }
 
@@ -86,35 +81,39 @@ export const fetchCoins = async (vsCurrency = 'usd', perPage = 50): Promise<Coin
         data = endpoint.transform(data);
       }
 
+      // Validate data
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.warn(`❌ ${endpoint.name} returned invalid data`);
+        continue;
+      }
+
       // Update cache
       cachedCoins = data;
       cacheTimestamp = now;
       
-      console.log(`✅ ${endpoint.name} succeeded!`);
+      console.log(`✅ ${endpoint.name} succeeded with ${data.length} coins!`);
       return data;
 
-    } catch (error) {
-      console.warn(`❌ ${endpoint.name} error:`, error);
+    } catch (error: any) {
+      console.warn(`❌ ${endpoint.name} error:`, error.message);
       continue;
     }
   }
 
   // If all APIs fail, return cached data if available
   if (cachedCoins) {
-    console.log('⚠️ All APIs failed, returning stale cache');
+    console.warn('⚠️ All APIs failed, returning stale cache');
     return cachedCoins;
   }
 
-  // Last resort error
-  throw new Error('All API endpoints failed and no cache available');
+  // Last resort - throw error
+  throw new Error('Unable to fetch cryptocurrency data. Please check your internet connection.');
 };
 
 export const fetchCoinDetails = async (id: string) => {
   try {
-    const response = await fetch(`${COINGECKO_BASE_URL}/coins/${id}?sparkline=true`, {
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!response.ok) throw new Error('Failed to fetch coin details');
+    const response = await fetch(`https://api.coingecko.com/api/v3/coins/${id}?sparkline=true`);
+    if (!response.ok) throw new Error('Failed to fetch details');
     return response.json();
   } catch (error) {
     // Return from cache if available
