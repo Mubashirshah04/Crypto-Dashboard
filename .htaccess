@@ -1,0 +1,38 @@
+<IfModule mod_mime.c>
+  # JavaScript MIME types
+  AddType application/javascript .js
+  AddType application/javascript .mjs
+  AddType text/javascript .js
+  AddType text/javascript .mjs
+  
+  # CSS MIME type
+  AddType text/css .css
+  
+  # JSON MIME type
+  AddType application/json .json
+  
+  # WebAssembly MIME type
+  AddType application/wasm .wasm
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Force correct MIME type for JavaScript files
+  <FilesMatch "\.(js|mjs)$">
+    Header set Content-Type "application/javascript; charset=utf-8"
+  </FilesMatch>
+  
+  # Force correct MIME type for CSS files
+  <FilesMatch "\.css$">
+    Header set Content-Type "text/css; charset=utf-8"
+  </FilesMatch>
+</IfModule>
+
+# Enable rewrite engine for SPA routing
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
