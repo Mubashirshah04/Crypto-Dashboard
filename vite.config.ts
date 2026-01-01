@@ -5,9 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    headers: {
-      'Content-Type': 'application/javascript; charset=utf-8',
-    },
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
   },
   build: {
     outDir: 'dist',
